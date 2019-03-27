@@ -1166,8 +1166,41 @@ rfsrc <- function(formula,
   }
 
   ## mark missing factor levels as NA.
+  # final check: make sure yvar is a factor; if not, see if it can be coerced into one
+  factor_cols <- sapply(data, is.factor)
+  for (yname in yvar.names) {
+    if (!factor_cols[yname]) { 
+      cat(yname)
+      n_levels <- length(unique(data[,yname]))
+      if (n_levels > 2) {
+        stop(paste("y-variable", yname, "improperly specified; should be a factor with 2 levels."))
+      }
+
+      # if it can be coerced into factor, re-parse the formula, too
+      else {
+        data[,yname] <- as.factor(data[,yname])
+        ## parse the formula
+        formulaPrelim <- parseFormula(formula, data, ytry)
+
+        ## save the call/formula for the return object
+        my.call <- match.call()
+        my.call$formula <- eval(formula)
+        formulaDetail <- finalizeFormula(formulaPrelim, data)
+
+        ## save the family for convenient access
+        family <- formulaDetail$family
+
+        ## save the names for convenient access
+        xvar.names <- formulaDetail$xvar.names
+        yvar.names <- formulaDetail$yvar.names
+        warning(paste("y-variable", yname, "coerced into factor."))
+      }
+    }
+  }
+
   data <- rm.na.levels(data, xvar.names)
   data <- rm.na.levels(data, yvar.names)
+
 
   ## Determine the immutable yvar factor map.
   yfactor <- extract.factor(data, yvar.names)
@@ -1456,7 +1489,7 @@ rfsrc <- function(formula,
 
   ## get performance and rfq bits
   perf.type <- get.perf(perf.type, impute.only, family)
-  perf.bits <-  get.perf.bits(perf.type)
+  perf.bits <- get.perf.bits(perf.type)
   rfq       <- get.rfq(rfq)
   rfq.bits  <- get.rfq.bits(rfq, family)
 
