@@ -1,11 +1,8 @@
 library(rfSLAM)
-<<<<<<< HEAD
-sca1.df<- readRDS("../Desktop/RF-SLAM_data/interval_by_sca1.rds")
-=======
-sca1.df<- readRDS("data/RF-SLAM_data/interval_by_sca1.rds")
->>>>>>> 2a6b2f43cb6f6bbf2caacad221216bbf016e1526
 
-sca1.df$i.sca <- as.factor(sca1.df$i.sca)
+sca1.df<- readRDS("../../Desktop/RF-SLAM_data/interval_by_sca1.rds")
+
+#sca1.df$i.sca <- as.factor(sca1.df$i.sca)
 
 sel.var1 <- c("pid","scd", "age", "gender", 
 			  "ethnic", "bsa", "etio", "durationofcm", 
@@ -32,6 +29,7 @@ sel.var1 <- c("pid","scd", "age", "gender",
 
 
 ### 
+#sca1.df$i.sca <- as.factor(sca1.df$i.sca)
 
 set.seed(321)
 
@@ -58,6 +56,8 @@ rf.sca <- rfsrc(i.sca ~ age + gender + ethnic + bsa + etio + durationofcm +
 						do.trace = TRUE)
 
 rf.sca
+
+sca1.df$i.sca <- as.factor(sca1.df$i.sca)
 
 new.pred <- predict.rfsrc(rf.sca, newdata = sca1.df, na.action = "na.impute", membership = TRUE)
 
