@@ -4,10 +4,10 @@ library("readstata13")
 library("tidyverse")
 
 # load updated_corrected
-corrected <- readRDS("../data/RF-SLAM_data/updated.corrected.rds")
+corrected <- readRDS("../../Desktop/RF-SLAM_data/updated.corrected.rds")
 
 # load LVEF data
-lvef_data <- read.dta13("../data/RF-SLAM_data/LVEFdata_022619.dta")
+lvef_data <- read.dta13("../../Desktop/RF-SLAM_data/LVEFdata_022619.dta")
 
 # merge row-wise
 corrected <- merge(corrected, lvef_data, all.x=TRUE)
@@ -134,14 +134,14 @@ to_create_mdeath <- list(t.hf=sprintf("timehf%dpsca",seq(1:10)),
 						 ni.sca="timescd1")
 
 # new files
-interval_by_sca   <- cpiu.fc(corrected, t.outcome="min_death_sca", to_create=to_create_msc)
-interval_by_hf    <- cpiu.fc(corrected, t.outcome="min_death_hf", to_create=to_create_mhf)
-interval_by_death <- cpiu.fc(corrected, t.outcome="deathtime", to_create=to_create_mdeath)
+interval_by_sca   <- cpiu.fc(corrected, t.outcome="min_death_sca", to_create=to_create_msc, k_to_persist=0)
+interval_by_hf    <- cpiu.fc(corrected, t.outcome="min_death_hf", to_create=to_create_mhf, k_to_persist=0)
+interval_by_death <- cpiu.fc(corrected, t.outcome="deathtime", to_create=to_create_mdeath, k_to_persist=0)
 
 
 # save
-s0 <- saveRDS(corrected, "corrected_debug.rds")
-s1 <- saveRDS(interval_by_sca, "interval_by_sca1_new.rds")
-s2 <- saveRDS(interval_by_hf, "interval_by_hf1_new.rds")
-s3 <- saveRDS(interval_by_death, "interval_by_death_new.rds")
+#s0 <- saveRDS(corrected, "../corrected_debug.rds")
+s1 <- saveRDS(interval_by_sca, "../../Desktop/RF-SLAM_data/interval_by_sca1_new_m3.rds")
+s2 <- saveRDS(interval_by_hf, "../../Desktop/RF-SLAM_data/interval_by_hf1_new_m3.rds")
+s3 <- saveRDS(interval_by_death, "../../Desktop/RF-SLAM_data/interval_by_death_new_m3.rds")
 

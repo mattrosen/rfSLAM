@@ -175,6 +175,7 @@ NumericVector assemble_time_elapsed(NumericVector events,
 /* 			 List          measures                                           */
 /*			 NumericVector t_start                                            */
 /* 			 NumericVector t_end                                              */
+/*			 int           k_to_persist										  */
 /*                                                                            */
 /* Returns:                                                                   */
 /* 			 NumericVector continuous                                         */
@@ -183,12 +184,15 @@ NumericVector assemble_time_elapsed(NumericVector events,
 // [[Rcpp::export]]
 NumericVector assemble_continuous(List measures,
 								  NumericVector t_start, 
-								  NumericVector t_end) {
+								  NumericVector t_end,
+								  int k_to_persist) {
 
 	// change flag
 	int did_change = 0;
-	int j_start = 0;
+	int j_start    = 0;
+	int change_age = 0;
 
+	// pull apart the times + values of measurements from the list
 	NumericVector m_times  = as<NumericVector>(measures["times"]);
 	NumericVector m_values = as<NumericVector>(measures["values"]);
 
@@ -202,27 +206,41 @@ NumericVector assemble_continuous(List measures,
 
 	// vector of values; initializes to 0
 	NumericVector continuous(t_start.size());
+
+	// k to persist: take care of -1 case
+	if (k_to_persist == -1) {
+		k_to_persist = t_start.size();
+	}
 	
+	// set first value
+	continuous[0] = m_values[0];
+
 	// set values appropriately
-	for (int i = 0; i < t_start.size(); i++) {
+	for (int i = 0; i < t_start.size() - 1; i++) {
 
 		did_change = 0;
 		
-		// does change in measure occur in this interval?
+		// does change in measure occur in this interval? if so, change the next interval
 		for (int j = j_start; j < m_times.size(); j++) {
-			if ((m_times[j] == 0 || m_times[j] > t_start[i]) && (m_times[j] <= t_end[i])) {
-				continuous[i] = m_values[j];
-				did_change = 1;
-				j_start = j;
+			if ((m_times[j] > t_start[i]) && (m_times[j] <= t_end[i])) {
+				continuous[i + 1] = m_values[j];
+				did_change        = 1;
+				j_start           = j;
+				change_age        = 0;
 			}
 		}
 
-		// check for case of no measurement for first interval; this makes
+		// if change doesn't occur in this interval, roll over 
 		if (!did_change) {
-			if (i == 0) {
-				stop("data must include measurement for first interval.");
+
+			// check for case of stale change
+			if (change_age >= k_to_persist) {
+				continuous[i + 1] = -1;
 			}
-			continuous[i] = continuous[i - 1];
+
+			else continuous[i + 1] = continuous[i];
+
+			change_age++;
 		}
 
 	}

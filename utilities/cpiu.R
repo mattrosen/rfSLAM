@@ -6,8 +6,7 @@
 ##
 ## Authors: Shannon Wongvibulsin & Matt Rosen
 ## 
-## Description: Function to reformat 'implicitly longitudinal' data into CPIUs
-## 				('explicitly longitudinal').
+## Description: Function to reformat data into CPIUs.
 ##
 ################################################################################
 ##
@@ -30,12 +29,12 @@
 ##                                    want our cpiu intervals to have risk-time 
 ##                                    in terms of half years, for example, then
 ##                                    this parameter should be 0.5.
-##      (integer)    unit_normalizer: should take care of unit switches from
+##      (integer)    unit_norm      : should take care of unit switches from
 ##                                    orig. data to cpiu format; for example, if
 ##                                    original data is in units of days, and you
 ##                                    want it to be in units of years, 
-##                                    unit_normalizer should be 365; there are
-##                                    365 days per year, or unit_normalizer 
+##                                    unit_norm should be 365; there are
+##                                    365 days per year, or unit_norm 
 ##                                    current units of time per 1 desired unit
 ##                                    of time. If desired units of time = units 
 ##                                    of time used in the original data, this 
@@ -48,12 +47,18 @@
 ##                                    s.t. new interval 1 = orig interval up to 
 ##                                    the occurrence of the event, and new 
 ##                                    interval 2 = orig interval after the event
-##      (list)      to_crete        : list of variables to create, s.t. every
+##      (list)      to_create       : list of variables to create, s.t. every
 ##                                    (key, value) pair of the list satisifies
 ##                                    the following criteria: 1) the key follows
 ##                                    the correct naming convention (must begin
 ##                                    with i, t, n, or ni); 2) the value 
 ##                                    specifies valid columns in df.
+##      (int)       k_to_persist    : integer, optional; specifies, for continuous
+##                                    variables, how long (in terms of intervals)
+##                                    a measured value should be carried on for. If
+##                                    specified as -1, denotes that a measurement
+##                                    should be carried to min(time of censoring/
+##                                    death, time of next measurement).
 ##
 ##  Returns:
 ##	    (partitioned) mod_df        : dataframe in CPIU format
@@ -70,7 +75,7 @@ cpiu.fc <- function(df,
                    death 			= "deaths", 
                    t.outcome 		= "timescd1",
 				   interval     	= 0.5,
-				   unit_normalizer  = 365,
+				   unit_norm        = 365,
 				   to_partition     = FALSE,
 				   to_create        = list(t.hf=sprintf("timehf%d",seq(1:10)),
 										   t.sca="timescd1",
@@ -80,7 +85,8 @@ cpiu.fc <- function(df,
 										   i.sca="timescd1",
 										   ni.hf=sprintf("timehf%d",seq(1:10)),
 										   ni.sca="timescd1",
-                                           i.death='deathtime')) {
+                                           i.death='deathtime'),
+                   k_to_persist     = -1) {
 
     print("Working...")
 	partitioned <- df             %>% 
@@ -92,9 +98,10 @@ cpiu.fc <- function(df,
 				   			death, 
 				   			t.outcome, 
 				   			interval, 
-				   			unit_normalizer,
+				   			unit_norm,
 				   			to_partition, 
-				   			to_create))
+				   			to_create, 
+                            k_to_persist))
 
   	return(partitioned)
  }
@@ -107,9 +114,10 @@ event <- function(df,
 				  death, 	    
 				  t.outcome,       
 				  interval,    
-				  unit_normalizer, 
+				  unit_norm, 
 				  to_partition, 
-				  to_create) {
+				  to_create,
+                  k_to_persist) {
 
     # extract specified columns
     td_events   <- df[,td.events]
@@ -119,11 +127,10 @@ event <- function(df,
     cur_id 		<- df[,id]
 
 
-    interval_mod <- interval * unit_normalizer
+    interval_mod <- interval * unit_norm
     
 
     # compute number of rows (e.g. number of intervals) to return
-    #n_intervals <- ceiling(tdeath[[1]] / interval_mod)
     n_intervals <- ceiling(t_outcome[[1]] / interval_mod)
 
     # extract names of columns to add by type
@@ -173,8 +180,7 @@ event <- function(df,
     							 "two attributes: times (time of measurement) and values",
     							 "(measured value).",
     							 sep 	  = "\n",
-    							 collapse = NULL)
-    #warning(continuous_var_warn)
+    							 collapse = NULL) 
 
     # create empty dataframe with correct shape
     mod_df 				 <- df %>% slice(rep(1:n(), each = n_intervals))
@@ -195,7 +201,7 @@ event <- function(df,
                                  t_outcome[[1]])
     mod_df$"rt"         <- ifelse(mod_df$t.start + interval_mod < t_outcome[[1]], 
                                   interval, 
-                                  (t_outcome[[1]] - mod_df$t.start) / unit_normalizer)
+                                  (t_outcome[[1]] - mod_df$t.start) / unit_norm)
     mod_df$"i.death"	<- ifelse(mod_df$t.start + interval_mod < tdeath[[1]],
     							  0,
     							  death[[1]])
@@ -227,16 +233,9 @@ event <- function(df,
     							 t_end   = mod_df$t.end)
     continuous_vars_l 	<- lapply(c_vars, 
     							 assemble_continuous, 
-    							 t_start = mod_df$t.start, 
-    							 t_end   = mod_df$t.end)
-
-    #print(c_vars)
-    #print(mod_df$t.start)
-    #print(mod_df$t.end)
-    #print(continuous_vars_l)
-
-    
-
+    							 t_start      = mod_df$t.start, 
+    							 t_end        = mod_df$t.end,
+                                 k_to_persist = k_to_persist)
     
     # add to dataframe
     if (length(indicators_l) > 0) {
@@ -277,6 +276,9 @@ event <- function(df,
 
 	mod_df <- as.data.frame(mod_df)
 
+    # take care of missingness
+    mod_df[mod_df == -1] <- NA
+
 
     # take care of variable partitioning on time-dependent events
     # (this is why that argument is still crucial)
@@ -287,7 +289,7 @@ event <- function(df,
     	variables_to_update <- names(to_create)[sapply(vars, function(x) {return(any(x %in% td.events))})]
     	mod_df <- mod_df %>%
     			 	group_by_("int.n") %>%
-    			 	do(interval_split(., intervals_to_split, split_times, interval, unit_normalizer, variables_to_update))
+    			 	do(interval_split(., intervals_to_split, split_times, interval, unit_norm, variables_to_update))
     }
     
     return(mod_df)
@@ -300,7 +302,7 @@ event <- function(df,
 #   'continuous' time-dependent variables
 # split intervals, if to_partition == TRUE
 #################################################
-interval_split <- function(df, intervals_to_split, split_times, interval, unit_normalizer, variables_to_update) {
+interval_split <- function(df, intervals_to_split, split_times, interval, unit_norm, variables_to_update) {
 
 	# if not an interval to split, return unmodified
 	if (!(df["int.n"] %in% intervals_to_split))
@@ -312,7 +314,7 @@ interval_split <- function(df, intervals_to_split, split_times, interval, unit_n
 	# modify original row
 	orig_end <- df$t.end
 	df$t.end <- min(times)
-	df$rt <- (df$t.end - df$t.start) / unit_normalizer
+	df$rt <- (df$t.end - df$t.start) / unit_norm
 
 	# based on the different cases, update variables differently
 	time_vars <- variables_to_update[sapply(variables_to_update, 
@@ -335,18 +337,19 @@ interval_split <- function(df, intervals_to_split, split_times, interval, unit_n
 		for (i in 2:length(times)) {
 			mod_df[i,]$t.start <- mod_df[i - 1,]$t.end
 			mod_df[i,]$t.end <- times[i - 1]
-			mod_df[i,]$rt <- (mod_df[i,]$t.end - mod_df[i,]$t.start) / unit_normalizer
+			mod_df[i,]$rt <- (mod_df[i,]$t.end - mod_df[i,]$t.start) / unit_norm
 			mod_df[i,others] <- 1
 			mod_df[i,time_vars] <- 0 
 		}
 	}
 
 	## last one
-	end <- nrow(mod_df)
-	mod_df[end,]$t.start <- mod_df[end-1,]$t.end
-	mod_df[end,]$t.end <- orig_end
-	mod_df[end,]$rt <- (mod_df[end,]$t.end - mod_df[end,]$t.start) / unit_normalizer
-	mod_df[end,others] <- 1
+	end                   <- nrow(mod_df)
+    
+	mod_df[end,]$t.start  <- mod_df[end-1,]$t.end
+	mod_df[end,]$t.end    <- orig_end
+	mod_df[end,]$rt       <- (mod_df[end,]$t.end - mod_df[end,]$t.start) / unit_norm
+	mod_df[end,others]    <- 1
 	mod_df[end,time_vars] <- 0
 
 
