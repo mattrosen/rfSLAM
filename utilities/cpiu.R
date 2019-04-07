@@ -68,7 +68,149 @@ library(dplyr)
 library(Rcpp)
 sourceCpp("../utilities/cpiu.cpp")
 
+################################################################################
+
+# convert columns of date strings to Date objects (allowing for slight
+# format flexibility)
+to_date <- function(x) { 
+    x[nchar(x) < 7] <- NA
+    tryCatch(as.Date(x, 
+                         tryFormats = c("%m-%d-%Y", 
+                                        "%m/%d/%Y")),
+                error = function(err) {NA})
+}
+
+# check which columns can be formatted as dates; try a bevy of options
+# re: formats (for generality)
+is_date <- function(mydate) {
+
+    # easy eliminations/inclusions
+    if (is.na(mydate)) {
+        return(FALSE)
+    }
+    else if (class(mydate) != "character") {
+        return(FALSE)
+    }
+    #else if (nchar(mydate) <= 1) { 
+    #    return(TRUE)
+    #}
+    else if (nchar(mydate) < 7) {
+        return(FALSE)
+    }
+    else {
+        val <- tryCatch(!is.na(as.Date(mydate, 
+                                "",
+                                tryFormats = c("%Y-%m-%d", 
+                                               "%Y/%m/%d",
+                                               "%d-%m-%Y",
+                                               "%d/%m/%Y",
+                                               "%m-%d-%Y", 
+                                               "%m/%d/%Y"))),  
+            error = function(err) {FALSE})  
+            return(val)
+    }
+        
+}
+
+# set up log for errors
+setup_error_log <- function() {
+    if (!file.exists('errors.txt')) {
+        f <- file("errors.txt")
+        writeLines("Potential typos in data:", f)
+        close(f)
+    }
+}
+
+# reset error log
+reset_error_log <- function() {
+    f <- file('errors.txt')
+    writeLines("Potential typos in data:", f)
+    close(f)
+}
+
+# when dealing with columns of dates, find entries that fail to conform to
+# correct/expected format
+catch_errors <- function(data) {
+
+    #ind <- sapply(data, is_date)
+    ind <- sapply(data, 
+                        function(x) sapply(x, is_date))
+
+    reset_error_log()
+    for (i in 1:dim(data)[2]) {
+
+        ind_cur <- ind[,i]
+
+        errors <- NA
+
+        # if only 1 is a date, that's probably the error
+        if (sum(ind_cur) == 1 && sum(is.na(ind_cur)) < length(ind_cur)) {
+            errors <- which(ind_cur)
+        }
+
+        # if more than half are dates, spit out values for ones that 
+        # (a) aren't dates, and 
+        # (b) aren't NA
+        else if (sum(ind_cur) > length(ind_cur) / 2) {
+            ind_cur[is.na(ind_cur)] <- TRUE
+            errors <- which(!ind_cur)
+        }
+
+        # write the putative errors
+        setup_error_log()
+        if (!is.na(errors[1])) {
+            write(c(colnames(ind)[i], errors), file="errors.txt", append=TRUE)
+        }
+        
+    }
+    
+
+}
+
+# correct errors found; default atm is to set to NA
+correct_errors <- function(data, errs) {
+    data[errs] <- NA
+    return(data)
+}
+
+# compute time elapsed from start for columns of dates
+to_time <- function(df, cols, start) {
+    
+    current_data <- df[,cols]
+    
+    # if is only one column, beef up dimension
+    current_data <- data.frame(current_data)
+    dates        <- sapply(current_data, 
+                        function(x) all(sapply(x, is_date)))
+
+    z <- sapply(current_data, function(x) any(sapply(x, is_date)))
+    x <- catch_errors(current_data)
+    print(z)
+    print(z[20])
+    stop()
+
+    # for those columns, convert the dates to times from start
+    elapsed <- function(msrmnt, t0) {
+
+        # take care of NAs
+        msrmnt                <- to_date(msrmnt)
+        msrmnt[is.na(msrmnt)] <- t0[is.na(msrmnt)]
+        return(as.numeric(msrmnt - t0))
+        
+    }
+
+
+    to_convert       <- current_data[,dates]
+    ref              <- df[,start]
+    df[,cols[dates]] <- sapply(to_convert, elapsed, ref)
+
+    return(df)
+}
+
+################################################################################
+# the main attraction: convert data into CPIU format
 cpiu.fc <- function(df,
+                   start.date       = "dateofmri",
 				   id           	= "pid",
                    td.events 		= sprintf("timehf%dpsca",seq(1:10)), 
                    death.time 		= "deathtime", 
@@ -89,6 +231,24 @@ cpiu.fc <- function(df,
                    k_to_persist     = -1) {
 
     print("Working...")
+
+
+    # before working on a subject-to-subject basis, convert start
+    # dates to Date objects
+    df$start.time <- to_date(df[,start.date])
+    
+    # convert all columns that look like dates to times elapsed since start of study
+    df <- to_time(df, names(df), "start.time")
+
+    # find continuous variables that pull from multiple columns,
+    # and make sure that they all work together as they should
+    # extract names of columns to add by type
+    var_names       <- names(df)
+    continuous_vars <- grep("^c\\.",  var_names)
+    print(continuous_vars)
+    stop()
+
+    # split by subject, + let the magic happen
 	partitioned <- df             %>% 
 				   group_by_(id)  %>%
 				   do(event(., 
@@ -104,7 +264,7 @@ cpiu.fc <- function(df,
                             k_to_persist))
 
   	return(partitioned)
- }
+}
 
 # perform partitioning on dataframe, return
 event <- function(df,           
@@ -140,11 +300,10 @@ event <- function(df,
     count_current 	<- grep("^ni\\.", var_names)
     time_vars 		<- grep("^t\\.",  var_names)
     continuous_vars <- grep("^c\\.",  var_names)
-    
-
 
     # extract data specified by to_create; do for continuous variables before unlisting all
-    c_vars  <- lapply(to_create[continuous_vars], function(x) {lapply(x, function(y) {as.matrix(select(df, !!y))})})
+    c_vars  <- lapply(to_create[continuous_vars], 
+                    function(x) {lapply(x, function(y) {as.matrix(select(df, !!y))})})
     vars 	<- lapply(to_create, unlist)
     
     ind 	<- lapply(vars[indicators], 	 function(x) {as.matrix(select(df, !!x))})
@@ -152,6 +311,12 @@ event <- function(df,
     ct_cur 	<- lapply(vars[count_current], 	 function(x) {as.matrix(select(df, !!x))})
     t_vars 	<- lapply(vars[time_vars], 		 function(x) {as.matrix(select(df, !!x))})
 
+    ##############################################################################
+    ## Naming convention check
+    ##
+    ## Make sure the user is playing by the rules; if they're naming things 
+    ## incorrectly, let 'em know! We don't want to break silently.
+    ##############################################################################
 
     # info string for error, if naming convention not followed
     naming_err <- paste("Names supplied to to_create must take the following form:",
@@ -175,15 +340,29 @@ event <- function(df,
     } 
 
     # warn user to make sure they name values of continuous_vars correctly
-    continuous_var_warn <- paste("When passing continuous variables with [c.var_name],",
-    							 "make sure to have to_create[c.var_name] be a list with",
-    							 "two attributes: times (time of measurement) and values",
-    							 "(measured value).",
-    							 sep 	  = "\n",
-    							 collapse = NULL) 
+    c_var_warn <- paste("When passing continuous variables with [c.var_name],",
+    					"make sure to have to_create[c.var_name] be a list with",
+    					"two attributes: times (time of measurement) and values",
+    					"(measured value).",
+    					sep 	 = "\n",
+    					collapse = NULL) 
+
+    # FIGURE OUT HOW TO IMPLEMENT C VAR WARNING HERE
+
+    ##############################################################################
+    ## Compute time elapsed when needed
+    ##
+    ## When we have measurements that vary over time, pre-CPIU conversion, 
+    ## different measurements are denoted by their dates. Convert these here to 
+    ## time elapsed since their enrollment date, + make sure the CPIU demarcation
+    ## handles the time units computed here correctly.
+    ##############################################################################
 
     # create empty dataframe with correct shape
     mod_df 				 <- df %>% slice(rep(1:n(), each = n_intervals))
+
+    # MODIFY TIMES FOR T ELAPSED VARS; MODIFY TIMES FOR C VARS; 
+
 
     ##############################################################################
     ## AREA TO EDIT (APPLICATION-SPECIFIC)
@@ -213,6 +392,7 @@ event <- function(df,
     td_events[is.na(td_events)] <- -1
 
     # handle different variable types differently
+    # (functions defined in cpiu.cpp are doing the heavy lifting here)
     indicators_l 		<- lapply(ind, 
     					   		 assemble_indicator, 
     					   		 t_start = mod_df$t.start, 
@@ -345,7 +525,7 @@ interval_split <- function(df, intervals_to_split, split_times, interval, unit_n
 
 	## last one
 	end                   <- nrow(mod_df)
-    
+
 	mod_df[end,]$t.start  <- mod_df[end-1,]$t.end
 	mod_df[end,]$t.end    <- orig_end
 	mod_df[end,]$rt       <- (mod_df[end,]$t.end - mod_df[end,]$t.start) / unit_norm

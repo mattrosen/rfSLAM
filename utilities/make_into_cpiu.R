@@ -2,6 +2,7 @@
 source("cpiu.R")
 library("readstata13")
 library("tidyverse")
+library("lubridate")
 
 # load updated_corrected
 corrected <- readRDS("../../Desktop/RF-SLAM_data/updated.corrected.rds")
@@ -13,7 +14,7 @@ lvef_data <- read.dta13("../../Desktop/RF-SLAM_data/LVEFdata_022619.dta")
 corrected <- merge(corrected, lvef_data, all.x=TRUE)
 
 # compute start time of study
-corrected$start.time <- as.Date(as.character(corrected$dateofmri),format = "%m/%d/%Y")
+corrected$start.time1 <- as.Date(as.character(corrected$dateofmri),format = "%m/%d/%Y")
 
 # add timehf1psca, etc.
 corrected$timehf1psca <- ifelse(corrected$timehf1 < corrected$timescd1, corrected$timehf1, NA)
@@ -64,7 +65,6 @@ lvef_prep <- function(df) {
 
 		# first, add cols
 		df <- df %>% mutate(!!sprintf("ef%dtime", i):=time_ef, !!sprintf("ef%dvalue", i) := val)
-		#print("ABC")
 
 		# if the nuclear ejection fraction used, update which one to evaluate next
 		if (which == 2) {
@@ -73,25 +73,17 @@ lvef_prep <- function(df) {
 				v_nuc <- NA
 			}
 			else {
-				#print(df[[1,sprintf("nuc%ddate",cur_nuc)]])
-				#print(is.na(df[1,sprintf("nuc%ddate",cur_nuc)]))
-				#print(nchar(df[1,sprintf("nuc%ddate",cur_nuc)]))
 				v_nuc <- ifelse(is.na(df[1,sprintf("nuc%ddate",cur_nuc)]) || nchar(df[1,sprintf("nuc%ddate",cur_nuc)]) < 7, 
 				NA, as.numeric(as.Date(as.character(df[[1,sprintf("nuc%ddate",cur_nuc)]]),format = "%m/%d/%Y") - df$start.time))
 			}	
 		}
-
-		#print(class(df))
-
 	}
 	return(df)
 }
 
-# prepare for lvef time finding
-corrected <- corrected %>% 
-			 group_by_("pid") %>%
-			 do(lvef_prep(.))
 
+
+#corrected <- to_time(corrected, sprintf("echo%ddate", 1:10), "start.time")#, sprintf("echo%def", 1:2)))
 
 
 
@@ -133,15 +125,77 @@ to_create_mdeath <- list(t.hf=sprintf("timehf%dpsca",seq(1:10)),
 						 ni.hf=sprintf("timehf%dpsca",seq(1:10)),
 						 ni.sca="timescd1")
 
-# new files
-interval_by_sca   <- cpiu.fc(corrected, t.outcome="min_death_sca", to_create=to_create_msc, k_to_persist=0)
-interval_by_hf    <- cpiu.fc(corrected, t.outcome="min_death_hf", to_create=to_create_mhf, k_to_persist=0)
-interval_by_death <- cpiu.fc(corrected, t.outcome="deathtime", to_create=to_create_mdeath, k_to_persist=0)
+for (k in c(0, 2)) {
+
+	# new files
+	interval_by_sca   <- cpiu.fc(corrected, t.outcome="min_death_sca", to_create=to_create_msc, k_to_persist=k)
+	interval_by_hf    <- cpiu.fc(corrected, t.outcome="min_death_hf", to_create=to_create_mhf,  k_to_persist=k)
+	interval_by_death <- cpiu.fc(corrected, t.outcome="deathtime", to_create=to_create_mdeath,  k_to_persist=k)
 
 
-# save
-#s0 <- saveRDS(corrected, "../corrected_debug.rds")
-s1 <- saveRDS(interval_by_sca, "../../Desktop/RF-SLAM_data/interval_by_sca1_new_m3.rds")
-s2 <- saveRDS(interval_by_hf, "../../Desktop/RF-SLAM_data/interval_by_hf1_new_m3.rds")
-s3 <- saveRDS(interval_by_death, "../../Desktop/RF-SLAM_data/interval_by_death_new_m3.rds")
+	# save
+	#s0 <- saveRDS(corrected, "../corrected_debug.rds")
+	s1 <- saveRDS(interval_by_sca, sprintf("../../Desktop/RF-SLAM_data/interval_by_sca1_new_m%d.rds", k))
+	s2 <- saveRDS(interval_by_hf, sprintf("../../Desktop/RF-SLAM_data/interval_by_hf1_new_m%d.rds", k))
+	s3 <- saveRDS(interval_by_death, sprintf("../../Desktop/RF-SLAM_data/interval_by_death_new_m%d.rds", k))
+}
 
+
+
+to_date <- function(x) { 
+	x[nchar(x) < 7] <- NA
+	tryCatch(as.Date(x, 
+	                     tryFormats = c("%m-%d-%Y", 
+	                                    "%m/%d/%Y")),
+	            error = function(err) {NA})
+}
+
+corrected$start.time <- to_date(corrected$dateofmri)
+
+##########################################
+
+
+# convert dates to times
+to_time <- function(df, cols, start) {
+
+	# check which columns can be formatted as dates; try a bevy of options
+    # re: formats (for generality)
+	is_date <- function(mydate) {
+		if (is.na(mydate)) {
+			return(TRUE)
+		}
+	  	tryCatch(!is.na(as.Date(mydate, 
+	  							"",
+	  							tryFormats = c("%Y-%m-%d", 
+                   							   "%Y/%m/%d",
+                   							   "%d-%m-%Y",
+                   							   "%d/%m/%Y",
+                   							   "%m-%d-%Y", 
+                   							   "%m/%d/%Y"))),  
+	        error = function(err) {FALSE})  
+	}
+
+    current_data <- df[,cols]
+    
+    # if is only one column, beef up dimension
+    current_data <- data.frame(current_data)
+    dates <- sapply(current_data, 
+                    function(x) all(sapply(x, is_date)))
+
+    # for those columns, convert the dates to times from start
+    elapsed <- function(msrmnt, t0) {
+
+    	# take care of NAs
+    	msrmnt <- to_date(msrmnt)
+    	msrmnt[is.na(msrmnt)] <- t0[is.na(msrmnt)]
+    	return(as.numeric(msrmnt - t0))
+    	
+    }
+
+
+    to_convert <- current_data[,dates]
+    ref <- df[,start]
+    df[,cols[dates]] <- sapply(to_convert, elapsed, ref)
+
+    return(df)
+}

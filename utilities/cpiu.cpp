@@ -234,7 +234,7 @@ NumericVector assemble_continuous(List measures,
 		if (!did_change) {
 
 			// check for case of stale change
-			if (change_age >= k_to_persist) {
+			if (change_age + 1 >= k_to_persist) {
 				continuous[i + 1] = -1;
 			}
 
