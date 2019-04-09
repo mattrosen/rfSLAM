@@ -73,9 +73,14 @@ sourceCpp("../utilities/cpiu.cpp")
 # convert columns of date strings to Date objects (allowing for slight
 # format flexibility)
 to_date <- function(x) { 
+    #print(x)
     x[nchar(x) < 7] <- NA
     tryCatch(as.Date(x, 
-                         tryFormats = c("%m-%d-%Y", 
+                         tryFormats = c(#"%Y-%m-%d", 
+                                        #"%Y/%m/%d",
+                                        #"%d-%m-%Y",
+                                        #"%d/%m/%Y",
+                                        "%m-%d-%Y", 
                                         "%m/%d/%Y")),
                 error = function(err) {NA})
 }
@@ -91,15 +96,14 @@ is_date <- function(mydate) {
     else if (class(mydate) != "character") {
         return(FALSE)
     }
-    #else if (nchar(mydate) <= 1) { 
-    #    return(TRUE)
-    #}
+    else if (nchar(mydate) <= 1) {
+        return(NA)
+    }
     else if (nchar(mydate) < 7) {
         return(FALSE)
     }
     else {
         val <- tryCatch(!is.na(as.Date(mydate, 
-                                "",
                                 tryFormats = c("%Y-%m-%d", 
                                                "%Y/%m/%d",
                                                "%d-%m-%Y",
@@ -113,30 +117,29 @@ is_date <- function(mydate) {
 }
 
 # set up log for errors
-setup_error_log <- function() {
-    if (!file.exists('errors.txt')) {
-        f <- file("errors.txt")
+setup_error_log <- function(fn) {
+    if (!file.exists(fn)) {
+        f <- file(fn)
         writeLines("Potential typos in data:", f)
         close(f)
     }
 }
 
 # reset error log
-reset_error_log <- function() {
-    f <- file('errors.txt')
+reset_error_log <- function(fn) {
+    f <- file(fn)
     writeLines("Potential typos in data:", f)
     close(f)
 }
 
 # when dealing with columns of dates, find entries that fail to conform to
 # correct/expected format
-catch_errors <- function(data) {
+catch_formatting_errors <- function(data, names) {
 
-    #ind <- sapply(data, is_date)
-    ind <- sapply(data, 
-                        function(x) sapply(x, is_date))
+    ind <- sapply(data, function(x) sapply(x, is_date))
 
-    reset_error_log()
+    # start a new error log for formatting errors
+    reset_error_log("formatting_errors.txt")
     for (i in 1:dim(data)[2]) {
 
         ind_cur <- ind[,i]
@@ -144,26 +147,64 @@ catch_errors <- function(data) {
         errors <- NA
 
         # if only 1 is a date, that's probably the error
-        if (sum(ind_cur) == 1 && sum(is.na(ind_cur)) < length(ind_cur)) {
+        #print(sum(ind_cur, na.rm=TRUE) == 1)
+        #print(sum(is.na(ind_cur)) < length(ind_cur))
+        if ((sum(ind_cur, na.rm=TRUE) == 1) && (sum(is.na(ind_cur)) < length(ind_cur))) {
             errors <- which(ind_cur)
         }
 
         # if more than half are dates, spit out values for ones that 
         # (a) aren't dates, and 
         # (b) aren't NA
-        else if (sum(ind_cur) > length(ind_cur) / 2) {
+        else if (sum(ind_cur, na.rm=TRUE) > length(ind_cur) / 2) {
             ind_cur[is.na(ind_cur)] <- TRUE
             errors <- which(!ind_cur)
         }
 
         # write the putative errors
-        setup_error_log()
         if (!is.na(errors[1])) {
-            write(c(colnames(ind)[i], errors), file="errors.txt", append=TRUE)
+            write(c(names[i], errors), file="formatting_errors.txt", append=TRUE)
+            write(c("\n", file="formatting_errors.txt", append=TRUE))
         }
         
     }
-    
+
+}
+
+# when dealing with columns of dates, find entries that aren't valid
+# re: start/end
+catch_validity_errors <- function(data, names, lens) {
+
+    # start a new error log for formatting errors
+    reset_error_log("validity_errors.txt")
+
+    for (i in 1:dim(data)[2]) {
+
+        cur_data                  <- data[,i]
+        cur_data[is.na(cur_data)] <- 0
+        cur_name                  <- names[i]
+
+        # make sure date > start date; do this by seeing if times are
+        # all positive (they should be)
+        errors_type1 <- which(cur_data < 0)
+
+        # make sure date < end date; do this by seeing if times 
+        # fall before end date
+        errors_type2 <- which(cur_data > lens)
+
+        # write the putative errors
+        if (length(errors_type1) > 0) {
+            write("Date before start:", file="validity_errors.txt", append=TRUE)
+            write(c(cur_name, errors_type1), file="validity_errors.txt", append=TRUE)
+            write("\n", file="validity_errors.txt", append=TRUE)
+        }
+        if (length(errors_type2) > 0) {
+            write("Date after end:", file="validity_errors.txt", append=TRUE)
+            write(c(cur_name, errors_type2), file="validity_errors.txt", append=TRUE)
+            write("\n", file="validity_errors.txt", append=TRUE)
+        }
+        
+    }
 
 }
 
@@ -181,13 +222,9 @@ to_time <- function(df, cols, start) {
     # if is only one column, beef up dimension
     current_data <- data.frame(current_data)
     dates        <- sapply(current_data, 
-                        function(x) all(sapply(x, is_date)))
+                        function(x) any(sapply(x, is_date)))
 
-    z <- sapply(current_data, function(x) any(sapply(x, is_date)))
-    x <- catch_errors(current_data)
-    print(z)
-    print(z[20])
-    stop()
+    dates <- names(which(dates))
 
     # for those columns, convert the dates to times from start
     elapsed <- function(msrmnt, t0) {
@@ -199,12 +236,24 @@ to_time <- function(df, cols, start) {
         
     }
 
-
     to_convert       <- current_data[,dates]
     ref              <- df[,start]
-    df[,cols[dates]] <- sapply(to_convert, elapsed, ref)
+    df[,dates] <- sapply(to_convert, elapsed, ref)
 
     return(df)
+}
+
+################################################################################
+# data quality assurance: check to see if things that look like dates are,
+perform_quality_assurance <- function(data, check_type, date_cols, lens=NA) {
+
+    # find date-like columns
+    if (check_type == 'formatting') {
+        catch_formatting_errors(data, date_cols)
+    }
+    else if (check_type == 'validity') {
+        catch_validity_errors(data, date_cols, lens)
+    }
 }
 
 ################################################################################
@@ -213,7 +262,8 @@ cpiu.fc <- function(df,
                    start.date       = "dateofmri",
 				   id           	= "pid",
                    td.events 		= sprintf("timehf%dpsca",seq(1:10)), 
-                   death.time 		= "deathtime", 
+                   death.time 		= "deathtime",
+                   death.date       = "datedeath",
                    death 			= "deaths", 
                    t.outcome 		= "timescd1",
 				   interval     	= 0.5,
@@ -228,7 +278,8 @@ cpiu.fc <- function(df,
 										   ni.hf=sprintf("timehf%d",seq(1:10)),
 										   ni.sca="timescd1",
                                            i.death='deathtime'),
-                   k_to_persist     = -1) {
+                   k_to_persist     = -1,
+                   quality_check    = TRUE) {
 
     print("Working...")
 
@@ -238,15 +289,27 @@ cpiu.fc <- function(df,
     df$start.time <- to_date(df[,start.date])
     
     # convert all columns that look like dates to times elapsed since start of study
+    date_cols      <- names(which(sapply(df, function(x) any(sapply(x, is_date)))))
+
+    # check formatting first
+    if (quality_check) {
+        perform_quality_assurance(df[,date_cols], 'formatting', date_cols)
+    }
+
     df <- to_time(df, names(df), "start.time")
 
+    # check validity first
+    if (quality_check) {
+        perform_quality_assurance(df[,date_cols], 'validity', date_cols, df[,death.time])
+    }
+
     # find continuous variables that pull from multiple columns,
-    # and make sure that they all work together as they should
+    # and TODO: make sure that they all work together as they should
     # extract names of columns to add by type
     var_names       <- names(df)
     continuous_vars <- grep("^c\\.",  var_names)
-    print(continuous_vars)
-    stop()
+    #print(continuous_vars)
+    #stop()
 
     # split by subject, + let the magic happen
 	partitioned <- df             %>% 
