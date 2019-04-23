@@ -73,7 +73,6 @@ sourceCpp("../utilities/cpiu.cpp")
 # convert columns of date strings to Date objects (allowing for slight
 # format flexibility)
 to_date <- function(x) { 
-    #print(x)
     x[nchar(x) < 7] <- NA
     tryCatch(as.Date(x, 
                          tryFormats = c(#"%Y-%m-%d", 
@@ -147,8 +146,6 @@ catch_formatting_errors <- function(data, names) {
         errors <- NA
 
         # if only 1 is a date, that's probably the error
-        #print(sum(ind_cur, na.rm=TRUE) == 1)
-        #print(sum(is.na(ind_cur)) < length(ind_cur))
         if ((sum(ind_cur, na.rm=TRUE) == 1) && (sum(is.na(ind_cur)) < length(ind_cur))) {
             errors <- which(ind_cur)
         }
@@ -166,9 +163,9 @@ catch_formatting_errors <- function(data, names) {
             write(c(names[i], errors), file="formatting_errors.txt", append=TRUE)
             write(c("\n", file="formatting_errors.txt", append=TRUE))
         }
-        
+        data[,i] <- correct_errors(data[,i], errors)
     }
-
+    return(data)
 }
 
 # when dealing with columns of dates, find entries that aren't valid
@@ -184,11 +181,11 @@ catch_validity_errors <- function(data, names, lens) {
         cur_data[is.na(cur_data)] <- 0
         cur_name                  <- names[i]
 
-        # make sure date > start date; do this by seeing if times are
+        # make sure date >= start date; do this by seeing if times are
         # all positive (they should be)
         errors_type1 <- which(cur_data < 0)
 
-        # make sure date < end date; do this by seeing if times 
+        # make sure date <= end date; do this by seeing if times 
         # fall before end date
         errors_type2 <- which(cur_data > lens)
 
@@ -199,9 +196,9 @@ catch_validity_errors <- function(data, names, lens) {
             write("\n", file="validity_errors.txt", append=TRUE)
         }
         if (length(errors_type2) > 0) {
-            write("Date after end:", file="validity_errors.txt", append=TRUE)
+            write("Date after end:",         file="validity_errors.txt", append=TRUE)
             write(c(cur_name, errors_type2), file="validity_errors.txt", append=TRUE)
-            write("\n", file="validity_errors.txt", append=TRUE)
+            write("\n",                      file="validity_errors.txt", append=TRUE)
         }
         
     }
@@ -244,7 +241,7 @@ to_time <- function(df, cols, start) {
 }
 
 ################################################################################
-# data quality assurance: check to see if things that look like dates are,
+# data quality assurance: check to see if things that look like dates are
 perform_quality_assurance <- function(data, check_type, date_cols, lens=NA) {
 
     # find date-like columns
@@ -255,6 +252,35 @@ perform_quality_assurance <- function(data, check_type, date_cols, lens=NA) {
         catch_validity_errors(data, date_cols, lens)
     }
 }
+
+# utility first
+handle_row <- function(times, vals) {
+
+    # find sorting based on time
+    return(order(times, decreasing=FALSE))
+
+}
+
+################################################################################
+# for continuous-valued, time-varying variables: pull together all columns
+# used for specifying, name them so that later code can take advantage
+prepare_c_vars <- function(df, to_create) {
+
+    # find c.XXX variables
+    cvs <- grep("^c\\.", names(to_create))
+    c_vars  <- lapply(to_create[cvs], 
+                    function(x) {lapply(x, function(y) {as.matrix(select(df, !!y))})})
+
+    for (cv in c_vars) {
+        time_cols <- names(cv$times)
+        val_cols <- names(cv$values)
+
+        # obtain all measures; for each row, sort them,
+        orders <- apply(cv, 1, handle_row)
+        df[,time_cols] <- df[,time_cols]
+    }
+}
+
 
 ################################################################################
 # the main attraction: convert data into CPIU format
@@ -293,12 +319,12 @@ cpiu.fc <- function(df,
 
     # check formatting first
     if (quality_check) {
-        perform_quality_assurance(df[,date_cols], 'formatting', date_cols)
+        df[,date_cols] <- perform_quality_assurance(df[,date_cols], 'formatting', date_cols)
     }
 
     df <- to_time(df, names(df), "start.time")
 
-    # check validity first
+    # check validity
     if (quality_check) {
         perform_quality_assurance(df[,date_cols], 'validity', date_cols, df[,death.time])
     }
@@ -306,8 +332,9 @@ cpiu.fc <- function(df,
     # find continuous variables that pull from multiple columns,
     # and TODO: make sure that they all work together as they should
     # extract names of columns to add by type
-    var_names       <- names(df)
-    continuous_vars <- grep("^c\\.",  var_names)
+    #var_names       <- names(df)
+    #continuous_vars <- grep("^c\\.",  var_names)
+    #prepare_c_vars(df, to_create)
     #print(continuous_vars)
     #stop()
 
@@ -366,7 +393,15 @@ event <- function(df,
 
     # extract data specified by to_create; do for continuous variables before unlisting all
     c_vars  <- lapply(to_create[continuous_vars], 
-                    function(x) {lapply(x, function(y) {as.matrix(select(df, !!y))})})
+                    function(x) {lapply(x, function(y) {as.numeric(as.matrix(select(df, !!y)))})})
+    
+    cvars_sort <- function(cv) {
+        sorted_times <- sort(cv$times, index.return=TRUE)
+        sorted_values <- cv$values[sorted_times$ix]
+        return(list(times=sorted_times$x, values=sorted_values))
+    }
+    
+    c_vars <- lapply(c_vars, cvars_sort)
     vars 	<- lapply(to_create, unlist)
     
     ind 	<- lapply(vars[indicators], 	 function(x) {as.matrix(select(df, !!x))})
@@ -451,7 +486,7 @@ event <- function(df,
     # pass to C++ function to facilitate the looping;
     # set td.events values to -1 if NA to ensure that they
     # won't satisfy inequality in cpiu.cpp
-    td_events <- unlist(td_events, use.names = FALSE)
+    td_events                   <- unlist(td_events, use.names = FALSE)
     td_events[is.na(td_events)] <- -1
 
     # handle different variable types differently
