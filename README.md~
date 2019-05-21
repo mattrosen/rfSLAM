@@ -1,5 +1,6 @@
 # rfSLAM
-Updated code for forthcoming rfSLAM package.
+## Random Forests for Survival, Longitudinal, and Multivariate Data
+Code extending Ishwaran and Kogalur's randomForestSRC package for forthcoming rfSLAM package, by Shannon Wongvibulsin and Matt Rosen. (Under construction).
 
 ## Installation
 
