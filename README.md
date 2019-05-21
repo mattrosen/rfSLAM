@@ -45,13 +45,13 @@ This release of rfSLAM encompasses two distinct foci:
 2. Conversion of standard (e.g. implicitly longitudinal) data to work with these adjusted random forests.
 
 All changes relevant to focus 1 occur within the rfsrc.R and randomForestSRC.c/randomForestSRC.h files. Changes to rfsrc.R take the form of added arguments to support functionality that we have built on top of randomForestSRC (or changes we have made to the default operation of randomForestSRC). As rfsrc.R calls randomForestSRC.c sitting underneath, all additions or changes that these arguments support are actually implemented in randomForestSRC.c. Because the original source code from which we worked was scrubbed of all comments/documentation, we find it easiest to refer interested users to particular functions within randomForestSRC.c to find the relevant changes:
-    + rfsrcGrow()
-    + selectRandomCovariates()
-    + rfsrcPredict()
++ rfsrcGrow()
++ selectRandomCovariates()
++ rfsrcPredict()
 
 We have documented the specifics of all changes in a manually annotated diff file for the rfsrc.R changes, accessible [here]<rfsrc_diff.txt>.
 
-All code relevant to focus 2 is our own, and can be found (with explanatory comments) in [cpiu.R]<./utilities/cpiu.R> and [cpiu.cpp]<./utilities/cpiu.cpp>; examples of how to use these functions can be found in [make_into_cpiu.R]<./utilities/make_into_cpiu.R>.
+All code relevant to focus 2 is our own, and can be found (with explanatory comments) in [cpiu.R](./utilities/cpiu.R) and [cpiu.cpp](./utilities/cpiu.cpp); examples of how to use these functions can be found in [make_into_cpiu.R](./utilities/make_into_cpiu.R).
 
 ## Examples
 Example code for using the rfSLAM package can be found in the [examples](./examples/) folder.
