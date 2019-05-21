@@ -49,7 +49,7 @@ All changes relevant to focus 1 occur within the rfsrc.R and randomForestSRC.c/r
 + selectRandomCovariates()
 + rfsrcPredict()
 
-We have documented the specifics of all changes in a manually annotated diff file for the rfsrc.R changes, accessible [here](rfsrc_diff.txt).
+Our changes implementing variants of Poisson split rules can be found in [splitCustom.c](./src/splitCustom.c). We have also documented the specifics of all changes to rfsrc.R in a manually annotated diff file, accessible [here](rfsrc_diff.txt).
 
 All code relevant to focus 2 is our own, and can be found (with explanatory comments) in [cpiu.R](./utilities/cpiu.R) and [cpiu.cpp](./utilities/cpiu.cpp); examples of how to use these functions can be found in [make_into_cpiu.R](./utilities/make_into_cpiu.R).
 

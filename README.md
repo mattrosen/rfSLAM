@@ -1,6 +1,11 @@
 # rfSLAM
 ## Random Forests for Survival, Longitudinal, and Multivariate Data
-Code extending Ishwaran and Kogalur's randomForestSRC package for forthcoming rfSLAM package, by Shannon Wongvibulsin and Matt Rosen. (Under construction).
+We introduce a novel dynamic approach to clinical risk prediction for survival, longitudinal, and multivariate (SLAM) outcomes, called random forest for SLAM data analysis (RF-SLAM). RF-SLAM (an extension of Ishwaran and Kogalur's randomForestSRC package) is a continuous-time, random forest method for survival analysis that combines the strengths of existing statistical and machine learning methods to produce individualized Bayes estimates of piecewise-constant hazard rates.
+
+
+In RF-SLAM, a large number of trees (e.g. 1000) are grown to create the random forest. Unlike the random survival forest approach in randomForestSRC where the individual is the unit of analysis, RF-SLAM builds trees using data binned according to user-specified lengths of time in a format we call counting process information units (CPIUs). Each individual can have many CPIUs during the period of follow-up. In the example sudden cardiac arrest (SCA) risk prediction problem, we consider follow-up time of 8 years and specify the time intervals to be 6 months long so that each individual has a CPIU representing each half-year of observation. We assume that a person's event hazard is constant within each CPIU. This strategy allows predictor variables to change from one interval to the next. Given the partition of the follow-up time into CPIUs, we use a Poisson regression splitting criterion that does not impose the proportional hazards assumption that the predictors have a common effect across the entire follow-up time.
+
+
 
 ## Installation
 
