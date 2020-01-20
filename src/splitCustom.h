@@ -366,7 +366,7 @@ double poissonSplit6 (unsigned int n,
                       double     **feature,
                       unsigned int featureCount);
 
-double binomialSplit (unsigned int n,
+double multinomialSplit (unsigned int n,
                       double k_for_alpha,
                       char        *membership,
                       double      *time,

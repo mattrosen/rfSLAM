@@ -62,7 +62,7 @@ void registerCustomFunctions() {
     registerThis (&poissonSplit6, CLAS_FAM, 7);
     registerThis (&getCustomSplitStatisticMultivariateRegressionSeven, REGR_FAM, 7);
     
-    registerThis (&binomialSplit, CLAS_FAM, 8);
+    registerThis (&multinomialSplit, CLAS_FAM, 8);
     registerThis (&getCustomSplitStatisticMultivariateRegressionEight, REGR_FAM, 8);
   //  registerThis (&getCustomSplitStatisticSurvivalTwo, SURV_FAM, 2);
   //  registerThis (&getCustomSplitStatisticCompetingRiskTwo, CRSK_FAM, 2);
@@ -1715,12 +1715,12 @@ double getCustomSplitStatisticMultivariateRegressionSeven (unsigned int n,
 /******************************************************************************/
 
 /**
- * Poisson split 6: with stratification by interval time but not risk time,
- *                  no Bayes estimate.
+ * Multinomial split: random survival forest with P - 1 competing risks and equal
+ * length discrete time periods
  * ------------------------------------------------------------------------
  * for speed, we unroll computations for each of the daughter nodes.
  */
-double binomialSplit (unsigned int n,
+double multinomialSplit (unsigned int n,
                       double k_for_alpha,
                       char        *membership,
                       double      *time,
@@ -1738,7 +1738,196 @@ double binomialSplit (unsigned int n,
                       double     **feature,
                       unsigned int featureCount)
 {
-  return 0;
+  /* necessary vars */
+  int i, p, k, K = 0; // i is observation, k is strata (period), p is event, K is last period in parent leaf
+  double stat = 0.0, stat_L = 0.0, stat_R = 0.0;
+  
+  /**
+   * determine K; also, check that response conforms
+   * with expectations (2 classes, 1.0 and 2.0)
+   */
+  for (i = 1; i <= n; i++) {
+    if (feature[1][i] > K) 
+      K = feature[1][i]; // feature [1][i] contains period of observation i
+      /*if (response[i] > 2.0) {
+        fprintf(stderr, "response variable error: this custom split function for classification\n \
+                    does not yet support k-class classification for k > 2; your response\n        \
+                    took value %f.\n", response[i]);
+        exit(1);
+      }
+      if (response[i] < 0.0) {
+        fprintf(stderr, "response variable error: this custom split function for classification\n \
+                    expects responses with values in {0.0, 1.0, 2.0}. Yours assumed value %f.\n", 
+                    response[i]);
+        exit(1);
+      }*/
+  }
+  
+  
+  /* arrays for results; pre-allocate everything, 
+   for L and R, too, for speed */
+  
+  //PARENT
+  // hazard rate for event p at time k in parent s
+  double** h_kps = calloc((K + 1), sizeof(double*));
+  for (i = 0; i < K + 1; i++) {
+    h_kps[i] = calloc((maxLevel + 1), sizeof(double));
+  }
+  // occurence of event p at time k in parent s
+  int** e_kps = calloc((K + 1), sizeof(int*));
+  for (i = 0; i < K + 1; i++) {
+    e_kps[i] = calloc((maxLevel + 1), sizeof(int));
+  }
+  // risk set at time k in parent s
+  int *r_ks  = calloc((K + 1), sizeof(int));
+  
+  // LEFT child node
+  double** h_kps_L = calloc((K + 1), sizeof(double*));
+  for (i = 0; i < K + 1; i++) {
+    h_kps_L[i] = calloc((maxLevel + 1), sizeof(double));
+  }
+  int** e_kps_L = calloc((K + 1), sizeof(int*));
+  for (i = 0; i < K + 1; i++) {
+    e_kps_L[i] = calloc((maxLevel + 1), sizeof(int));
+  }
+  int *r_ks_L  = calloc((K + 1), sizeof(int));
+  
+  // RIGHT child node
+  double** h_kps_R = calloc((K + 1), sizeof(double*));
+  for (i = 0; i < K + 1; i++) {
+    h_kps_R[i] = calloc((maxLevel + 1), sizeof(double));
+  }
+  int** e_kps_R = calloc((K + 1), sizeof(int*));
+  for (i = 0; i < K + 1; i++) {
+    e_kps_R[i] = calloc((maxLevel + 1), sizeof(int));
+  }
+  int *r_ks_R  = calloc((K + 1), sizeof(int));
+  
+  /* compute e_kps, r_ks and h_kps! */
+  /* make the pass through, count necessary quantities */
+  int cur_y, cur_k;
+  
+  for (i = 1; i <= n; i++) {
+    
+    cur_y  = (int) response[i];
+    cur_k  = (int) feature[1][i];
+    // risk time 1 due to periods of length 1
+    
+    /****************/
+    /**   parent   **/
+    /****************/
+    /* increment e_kps, r_ks appropriately  */
+    /*
+     * number of persons experiecing event cur_y at k
+     */
+    e_kps[cur_k][cur_y]++;
+    /*
+     * risk set for period k is simply the number of 
+     * person period observations at k
+     */
+    r_ks[cur_k]++;
+    
+    /****************/
+    /** L DAUGHTER **/
+    /****************/
+    
+    if (membership[i] == LEFT) {
+      e_kps_L[cur_k][cur_y]++;
+      r_ks_L[cur_k]++;
+    }
+    
+    /****************/
+    /** R DAUGHTER **/
+    /****************/
+    else {
+      e_kps_R[cur_k][cur_y]++;
+      r_ks_R[cur_k]++;
+    }
+    
+  }
+  
+  /* divide to find h_kps, calc. split statistic for 
+   each case */
+  for (k = 1; k <= K; i++) {
+    // if no person period observations at k
+    if (r_ks[k] != 0) {
+      // then no hazard for all events
+      // (event 1 is censored)
+      // for(p = 2; p <= maxLevel; p ++) {
+      //   h_kps[k][p] = 0.0;  
+      // }
+      for(p = 1; p <= maxLevel; p ++) {
+        h_kps[k][p] = e_kps[cur_k][p] / r_ks[k];  
+      }
+    }
+    // LEFT
+    if (r_ks_L[k] != 0) {
+      for(p = 1; p <= maxLevel; p ++) {
+        h_kps_L[k][p] = e_kps_L[cur_k][p] / r_ks_L[k];
+      }
+    }
+    // RIGHT
+    if (r_ks_R[k] != 0) {
+      for(p = 1; p <= maxLevel; p ++) {
+        h_kps_R[k][p] = e_kps_R[cur_k][p] / r_ks_R[k];
+      }
+    }
+  }
+  
+  /* calculate the split statistic for each case; ignore
+   cases when the value of mu is 0 (else will result in 
+   NaNs) */
+  for (k = 1; k <= K; k++) {
+    
+    /*
+     * parent likelihood per period:
+     * number of event occurences * log (empirical MLE of likelhood of event occurence)
+     */
+    if (r_ks[k] != 0){
+      for(p = 1; p <= maxLevel; p ++){
+        if (h_kps[k][p] != 0){
+          stat += e_kps[k][p] * log(h_kps[k][p]);
+        }
+      }
+    }
+    // LEFT
+    if (r_ks_L[k] != 0){
+      for(p = 1; p <= maxLevel; p ++){
+        if (h_kps_L[k][p] != 0){
+          stat_L += e_kps_L[k][p] * log(h_kps_L[k][p]);
+        }
+      }
+    }
+    // RIGHT
+    if (r_ks_R[k] != 0){
+      for(p = 1; p <= maxLevel; p ++){
+        if (h_kps_R[k][p] != 0){
+          stat_R += e_kps_R[k][p] * log(h_kps_R[k][p]);
+        }
+      }
+    }
+    
+  }
+  
+  /* free memory
+   * h_kps e_kps r_ks
+   */
+  free(h_kps);
+  free(e_kps);
+  free(r_ks);
+  
+  free(h_kps_L);
+  free(e_kps_L);
+  free(r_ks_L);
+  
+  free(h_kps_R);
+  free(e_kps_R);
+  free(r_ks_R);
+  
+  printf("%f\n", stat_L + stat_R - stat);
+  
+  /* determine delta, return */
+  return (stat_L + stat_R - stat);
 }
 
 double getCustomSplitStatisticMultivariateRegressionEight (unsigned int n,
