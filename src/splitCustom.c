@@ -61,6 +61,9 @@ void registerCustomFunctions() {
 
     registerThis (&poissonSplit6, CLAS_FAM, 7);
     registerThis (&getCustomSplitStatisticMultivariateRegressionSeven, REGR_FAM, 7);
+    
+    registerThis (&binomialSplit, CLAS_FAM, 8);
+    registerThis (&getCustomSplitStatisticMultivariateRegressionEight, REGR_FAM, 8);
   //  registerThis (&getCustomSplitStatisticSurvivalTwo, SURV_FAM, 2);
   //  registerThis (&getCustomSplitStatisticCompetingRiskTwo, CRSK_FAM, 2);
 
@@ -1707,6 +1710,58 @@ double getCustomSplitStatisticMultivariateRegressionSeven (unsigned int n,
   fprintf(stderr, "outcome must be a factor; custom regression rule not yet implemented.\n");
   exit(1);
 
+}
+
+/******************************************************************************/
+
+/**
+ * Poisson split 6: with stratification by interval time but not risk time,
+ *                  no Bayes estimate.
+ * ------------------------------------------------------------------------
+ * for speed, we unroll computations for each of the daughter nodes.
+ */
+double binomialSplit (unsigned int n,
+                      double k_for_alpha,
+                      char        *membership,
+                      double      *time,
+                      double      *event,
+                      
+                      unsigned int eventTypeSize,
+                      unsigned int eventTimeSize,
+                      double      *eventTime,
+                      
+                      double      *response,
+                      double       mean,
+                      double       variance,
+                      unsigned int maxLevel,
+                      
+                      double     **feature,
+                      unsigned int featureCount)
+{
+  return 0;
+}
+
+double getCustomSplitStatisticMultivariateRegressionEight (unsigned int n,
+                                                           double k_for_alpha,
+                                                           char        *membership,
+                                                           double      *time,
+                                                           double      *event,
+                                                           
+                                                           unsigned int eventTypeSize,
+                                                           unsigned int eventTimeSize,
+                                                           double      *eventTime,
+                                                           
+                                                           double      *response,
+                                                           double       mean,
+                                                           double       variance,
+                                                           unsigned int maxLevel,
+                                                           
+                                                           double     **feature,
+                                                           unsigned int featureCount)
+{
+  fprintf(stderr, "outcome must be a factor; custom regression rule not yet implemented.\n");
+  exit(1);
+  
 }
 
 /*

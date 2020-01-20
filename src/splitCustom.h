@@ -238,6 +238,24 @@ double getCustomSplitStatisticMultivariateRegressionSeven (unsigned int n,
                                                       double     **feature,
                                                       unsigned int featureCount);
 
+double getCustomSplitStatisticMultivariateRegressionEight (unsigned int n,
+                                                           double k_for_alpha,
+                                                           char        *membership,
+                                                           double      *time,
+                                                           double      *event,
+                                                           
+                                                           unsigned int eventTypeSize,
+                                                           unsigned int eventTimeSize,
+                                                           double      *eventTime,
+                                                           
+                                                           double      *response,
+                                                           double       mean,
+                                                           double       variance,
+                                                           unsigned int maxLevel,
+                                                           
+                                                           double     **feature,
+                                                           unsigned int featureCount);
+
 /* bayesian estimate splits */
 double poissonSplit1 (unsigned int n,
                       double k_for_alpha,
@@ -340,6 +358,24 @@ double poissonSplit6 (unsigned int n,
                       unsigned int eventTimeSize,
                       double      *eventTime,
 
+                      double      *response,
+                      double       mean,
+                      double       variance,
+                      unsigned int maxLevel,
+                      
+                      double     **feature,
+                      unsigned int featureCount);
+
+double binomialSplit (unsigned int n,
+                      double k_for_alpha,
+                      char        *membership,
+                      double      *time,
+                      double      *event,
+                      
+                      unsigned int eventTypeSize,
+                      unsigned int eventTimeSize,
+                      double      *eventTime,
+                      
                       double      *response,
                       double       mean,
                       double       variance,
