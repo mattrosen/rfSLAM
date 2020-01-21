@@ -1376,6 +1376,9 @@ rfsrc <- function(formula,
     else if (strcmp(splitrule, "poisson.split6")) {
       splitrule <- "custom7"
     }
+    else if (strcmp(splitrule, "multinomial.split")) {
+      splitrule <- "custom8"
+    }
   }
 
   splitinfo <- get.grow.splitinfo(formulaDetail, splitrule, htry, nsplit, event.info$event.type)
@@ -1650,6 +1653,7 @@ rfsrc <- function(formula,
                                   as.integer(get.rf.cores()))}, error = function(e) {
                                     print(e)
                                     NULL})
+  
   ## check for error return condition in the native code
   if (is.null(nativeOutput)) {
     if (impute.only) {
