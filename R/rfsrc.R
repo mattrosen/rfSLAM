@@ -1379,6 +1379,9 @@ rfsrc <- function(formula,
     else if (strcmp(splitrule, "multinomial.split")) {
       splitrule <- "custom8"
     }
+    else if (strcmp(splitrule, "gini.split")) {
+      splitrule <- "custom9"
+    }
   }
 
   splitinfo <- get.grow.splitinfo(formulaDetail, splitrule, htry, nsplit, event.info$event.type)
