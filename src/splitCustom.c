@@ -1760,34 +1760,28 @@ double multinomialSplit (unsigned int n,
   /* arrays for results; pre-allocate everything, 
    for L and R, too, for speed */
   
+  // event set cardinalities at time tim k for revent p at parent s
+  unsigned int   **e_kps,  **e_kps_L, **e_kps_R;
+  // event set cardinalities at time tim k at parent s
+  unsigned int   *r_ks, *r_ks_L, *r_ks_R;
+  
   /****************/
   /**   parent   **/
   /****************/
-  // occurence of event p at time k in parent s
-  int** e_kps = calloc((K + 1), sizeof(int*));
-  for (i = 0; i < K + 1; i++) {
-    e_kps[i] = calloc((maxLevel + 1), sizeof(int));
-  }
-  // risk set at time k in parent s
-  int *r_ks  = calloc((K + 1), sizeof(int));
+  e_kps = alloc_uimatrix(K, maxLevel);
+  r_ks = alloc_uivector(K);
   
   /****************/
   /** L DAUGHTER **/
   /****************/
-  int** e_kps_L = calloc((K + 1), sizeof(int*));
-  for (i = 0; i < K + 1; i++) {
-    e_kps_L[i] = calloc((maxLevel + 1), sizeof(int));
-  }
-  int *r_ks_L  = calloc((K + 1), sizeof(int));
+  e_kps_L = alloc_uimatrix(K, maxLevel);
+  r_ks_L = alloc_uivector(K);
   
   /****************/
   /** R DAUGHTER **/
   /****************/
-  int** e_kps_R = calloc((K + 1), sizeof(int*));
-  for (i = 0; i < K + 1; i++) {
-    e_kps_R[i] = calloc((maxLevel + 1), sizeof(int));
-  }
-  int *r_ks_R  = calloc((K + 1), sizeof(int));
+  e_kps_R = alloc_uimatrix(K, maxLevel);
+  r_ks_R = alloc_uivector(K);
   
   /* compute e_kps, r_ks and h_kps! */
   /* make the pass through, count necessary quantities */
@@ -1879,12 +1873,14 @@ double multinomialSplit (unsigned int n,
   /* free memory
    * h_kps e_kps r_ks
    */
-  free(e_kps);
-  free(r_ks);
-  free(e_kps_L);
-  free(r_ks_L);
-  free(e_kps_R);
-  free(r_ks_R);
+  dealloc_uimatrix(e_kps, K, maxLevel);
+  dealloc_uivector(r_ks, K);
+  
+  dealloc_uimatrix(e_kps_L, K, maxLevel);
+  dealloc_uivector(r_ks_L, K);
+  
+  dealloc_uimatrix(e_kps_R, K, maxLevel);
+  dealloc_uivector(r_ks_R, K);
   
   // printf("Stat delta for split with %i observations: %f\n", n, stat_L + stat_R - stat);
   
@@ -1958,34 +1954,28 @@ double giniSplit (unsigned int n,
   /* arrays for results; pre-allocate everything, 
    for L and R, too, for speed */
   
+  // event set cardinalities at time tim k for revent p at parent s
+  unsigned int   **e_kps,  **e_kps_L, **e_kps_R;
+  // event set cardinalities at time tim k at parent s
+  unsigned int   *r_ks, *r_ks_L, *r_ks_R;
+  
   /****************/
   /**   parent   **/
   /****************/
-  // occurence of event p at time k in parent s
-  int** e_kps = calloc((K + 1), sizeof(int*));
-  for (i = 0; i < K + 1; i++) {
-    e_kps[i] = calloc((maxLevel + 1), sizeof(int));
-  }
-  // risk set at time k in parent s
-  int *r_ks  = calloc((K + 1), sizeof(int));
+  e_kps = alloc_uimatrix(K, maxLevel);
+  r_ks = alloc_uivector(K);
   
   /****************/
   /** L DAUGHTER **/
   /****************/
-  int** e_kps_L = calloc((K + 1), sizeof(int*));
-  for (i = 0; i < K + 1; i++) {
-    e_kps_L[i] = calloc((maxLevel + 1), sizeof(int));
-  }
-  int *r_ks_L  = calloc((K + 1), sizeof(int));
+  e_kps_L = alloc_uimatrix(K, maxLevel);
+  r_ks_L = alloc_uivector(K);
   
   /****************/
   /** R DAUGHTER **/
   /****************/
-  int** e_kps_R = calloc((K + 1), sizeof(int*));
-  for (i = 0; i < K + 1; i++) {
-    e_kps_R[i] = calloc((maxLevel + 1), sizeof(int));
-  }
-  int *r_ks_R  = calloc((K + 1), sizeof(int));
+  e_kps_R = alloc_uimatrix(K, maxLevel);
+  r_ks_R = alloc_uivector(K);
   
   /* compute e_kps, r_ks and h_kps! */
   /* make the pass through, count necessary quantities */
@@ -2077,12 +2067,14 @@ double giniSplit (unsigned int n,
   /* free memory
    * h_kps e_kps r_ks
    */
-  free(e_kps);
-  free(r_ks);
-  free(e_kps_L);
-  free(r_ks_L);
-  free(e_kps_R);
-  free(r_ks_R);
+  dealloc_uimatrix(e_kps, K, maxLevel);
+  dealloc_uivector(r_ks, K);
+  
+  dealloc_uimatrix(e_kps_L, K, maxLevel);
+  dealloc_uivector(r_ks_L, K);
+  
+  dealloc_uimatrix(e_kps_R, K, maxLevel);
+  dealloc_uivector(r_ks_R, K);
   
   // printf("Stat delta for split with %i observations: %f\n", n, stat_L + stat_R - stat);
   
