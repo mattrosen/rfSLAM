@@ -428,3 +428,7 @@ void          dealloc_dvector(double *v, unsigned int nh);
 
 unsigned int **alloc_uimatrix(unsigned int n2h, unsigned int nh);
 void          dealloc_uimatrix(unsigned int **v, unsigned int n2h, unsigned int nh);
+
+unsigned int *calloc_uivector(unsigned int nh);
+unsigned int **calloc_uimatrix(unsigned int n2h, unsigned int nh);
+   

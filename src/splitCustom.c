@@ -1768,20 +1768,20 @@ double multinomialSplit (unsigned int n,
   /****************/
   /**   parent   **/
   /****************/
-  e_kps = alloc_uimatrix(K, maxLevel);
-  r_ks = alloc_uivector(K);
+  e_kps = calloc_uimatrix(K, maxLevel);
+  r_ks = calloc_uivector(K);
   
   /****************/
   /** L DAUGHTER **/
   /****************/
-  e_kps_L = alloc_uimatrix(K, maxLevel);
-  r_ks_L = alloc_uivector(K);
+  e_kps_L = calloc_uimatrix(K, maxLevel);
+  r_ks_L = calloc_uivector(K);
   
   /****************/
   /** R DAUGHTER **/
   /****************/
-  e_kps_R = alloc_uimatrix(K, maxLevel);
-  r_ks_R = alloc_uivector(K);
+  e_kps_R = calloc_uimatrix(K, maxLevel);
+  r_ks_R = calloc_uivector(K);
   
   /* compute e_kps, r_ks and h_kps! */
   /* make the pass through, count necessary quantities */
@@ -1962,20 +1962,20 @@ double giniSplit (unsigned int n,
   /****************/
   /**   parent   **/
   /****************/
-  e_kps = alloc_uimatrix(K, maxLevel);
-  r_ks = alloc_uivector(K);
+  e_kps = calloc_uimatrix(K, maxLevel);
+  r_ks = calloc_uivector(K);
   
   /****************/
   /** L DAUGHTER **/
   /****************/
-  e_kps_L = alloc_uimatrix(K, maxLevel);
-  r_ks_L = alloc_uivector(K);
+  e_kps_L = calloc_uimatrix(K, maxLevel);
+  r_ks_L = calloc_uivector(K);
   
   /****************/
   /** R DAUGHTER **/
   /****************/
-  e_kps_R = alloc_uimatrix(K, maxLevel);
-  r_ks_R = alloc_uivector(K);
+  e_kps_R = calloc_uimatrix(K, maxLevel);
+  r_ks_R = calloc_uivector(K);
   
   /* compute e_kps, r_ks and h_kps! */
   /* make the pass through, count necessary quantities */
@@ -2122,6 +2122,11 @@ unsigned int *alloc_uivector(unsigned int nh)
   return (unsigned int *) malloc((size_t) ((nh+1) * (sizeof(unsigned int))));
 }
 
+unsigned int *calloc_uivector(unsigned int nh)
+{
+  return (unsigned int* ) calloc(nh + 1, sizeof(unsigned int));
+}
+
 void dealloc_uivector(unsigned int *v, unsigned int nh)
 {
   free((char *) v);
@@ -2144,6 +2149,16 @@ unsigned int **alloc_uimatrix(unsigned int n2h, unsigned int nh)
 
   for (unsigned int i = 1; i <= n2h; i++) {
     v[i] = alloc_uivector(nh);
+  }
+  return v;
+}
+
+unsigned int **calloc_uimatrix(unsigned int n2h, unsigned int nh)
+{
+  unsigned int **v = (unsigned int **) calloc(n2h + 1, sizeof(unsigned int *));
+  
+  for (unsigned int i = 1; i <= n2h; i++) {
+    v[i] = calloc_uivector(nh);
   }
   return v;
 }
