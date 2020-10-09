@@ -256,42 +256,6 @@ double getCustomSplitStatisticMultivariateRegressionEight (unsigned int n,
                                                            double     **feature,
                                                            unsigned int featureCount);
 
-double getCustomSplitStatisticMultivariateRegressionNine (unsigned int n,
-                                                           double k_for_alpha,
-                                                           char        *membership,
-                                                           double      *time,
-                                                           double      *event,
-                                                           
-                                                           unsigned int eventTypeSize,
-                                                           unsigned int eventTimeSize,
-                                                           double      *eventTime,
-                                                           
-                                                           double      *response,
-                                                           double       mean,
-                                                           double       variance,
-                                                           unsigned int maxLevel,
-                                                           
-                                                           double     **feature,
-                                                           unsigned int featureCount);
-
-double getCustomSplitStatisticMultivariateRegressionTen (unsigned int n,
-                                                          double k_for_alpha,
-                                                          char        *membership,
-                                                          double      *time,
-                                                          double      *event,
-                                                          
-                                                          unsigned int eventTypeSize,
-                                                          unsigned int eventTimeSize,
-                                                          double      *eventTime,
-                                                          
-                                                          double      *response,
-                                                          double       mean,
-                                                          double       variance,
-                                                          unsigned int maxLevel,
-                                                          
-                                                          double     **feature,
-                                                          unsigned int featureCount);
-
 /* bayesian estimate splits */
 double poissonSplit1 (unsigned int n,
                       double k_for_alpha,
@@ -419,42 +383,6 @@ double multinomialSplit (unsigned int n,
                       
                       double     **feature,
                       unsigned int featureCount);
-
-double giniSplit (unsigned int n,
-                  double k_for_alpha,
-                  char        *membership,
-                  double      *time,
-                  double      *event,
-                  
-                  unsigned int eventTypeSize,
-                  unsigned int eventTimeSize,
-                  double      *eventTime,
-                  
-                  double      *response,
-                  double       mean,
-                  double       variance,
-                  unsigned int maxLevel,
-                  
-                  double     **feature,
-                  unsigned int featureCount);
-
-double multinomialWeightedSplit (unsigned int n,
-                         double k_for_alpha,
-                         char        *membership,
-                         double      *time,
-                         double      *event,
-                         
-                         unsigned int eventTypeSize,
-                         unsigned int eventTimeSize,
-                         double      *eventTime,
-                         
-                         double      *response,
-                         double       mean,
-                         double       variance,
-                         unsigned int maxLevel,
-                         
-                         double     **feature,
-                         unsigned int featureCount);
 
 unsigned int *alloc_uivector(unsigned int nh);
 void          dealloc_uivector(unsigned int *v, unsigned int nh);
