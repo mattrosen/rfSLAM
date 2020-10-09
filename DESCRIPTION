@@ -1,15 +1,19 @@
 Package: rfSLAM
 Version: 0.0.2
-Date: 2020-01-20
+Date: 2020-10-09
 Title: Random Forests for Survival, Regression, and Classification
         (RF-SRC)
 Author: Shannon Wongvibulsin <swongvi1@jhmi.edu>, Matt Rosen <mattrosen@uchicago.edu>
 Maintainer: Matt Rosen <mattrosen@uchicago.edu>
+BugReports: https://github.com/mattrosen/rfSLAM/issues/new
 Depends: R (>= 3.5.1),
 Imports: parallel, pracma
 Suggests: glmnet, survival, pec, prodlim, mlbench, RCurl
 Description: Implementation of random forests for survival, longitudinal, and multivariate data; modified from randomForestSRC, by Ishwaran and Kogalur. We reproduce their package description here: "A unified treatment of Breiman's random forests for survival, regression and classification problems based on Ishwaran and Kogalur's random survival forests (RSF) package.  Now extended to include multivariate and unsupervised forests.  Also includes quantile regression forests for univariate and multivariate training/testing settings.  The package runs in both serial and parallel (OpenMP) modes."
 License: GPL (>= 3)
+URL: https://github.com/mattrosen/rfSLAM
 NeedsCompilation: yes
-Packaged: 2020-01-20 01:21:12 UTC; sivanov
+Packaged: 2018-05-18 02:12:12 UTC; kogalur
+Repository: CRAN
+Date/Publication: 2018-05-18 12:42:16 UTC
 RoxygenNote: 6.1.1
