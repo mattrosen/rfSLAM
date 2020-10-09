@@ -61,6 +61,10 @@ void registerCustomFunctions() {
 
     registerThis (&poissonSplit6, CLAS_FAM, 7);
     registerThis (&getCustomSplitStatisticMultivariateRegressionSeven, REGR_FAM, 7);
+    
+    registerThis (&multinomialSplit, CLAS_FAM, 8);
+    registerThis (&getCustomSplitStatisticMultivariateRegressionEight, REGR_FAM, 8);
+    
   //  registerThis (&getCustomSplitStatisticSurvivalTwo, SURV_FAM, 2);
   //  registerThis (&getCustomSplitStatisticCompetingRiskTwo, CRSK_FAM, 2);
 
@@ -1709,6 +1713,201 @@ double getCustomSplitStatisticMultivariateRegressionSeven (unsigned int n,
 
 }
 
+/******************************************************************************/
+
+/**
+ * Multinomial split: random survival forest with maxLevel - 1 competing risks and equal
+ * length discrete time periods
+ * ------------------------------------------------------------------------
+ * for speed, we unroll computations for each of the daughter nodes.
+ */
+double multinomialSplit (unsigned int n,
+                      double k_for_alpha,
+                      char        *membership,
+                      double      *time,
+                      double      *event,
+                      
+                      unsigned int eventTypeSize,
+                      unsigned int eventTimeSize,
+                      double      *eventTime,
+                      
+                      double      *response,
+                      double       mean,
+                      double       variance,
+                      unsigned int maxLevel,
+                      
+                      double     **feature,
+                      unsigned int featureCount)
+{
+  /* necessary vars */
+  // i is observation, p is event, k is strata (period), K is last period in parent leaf
+  int i, p, k, K = 0; 
+  double stat = 0.0, stat_L = 0.0, stat_R = 0.0;
+  
+  /**
+   * determine K;
+   */
+  for (i = 1; i <= n; i++) {
+    if (feature[1][i] > K){
+      // feature [1][i] contains period of observation i
+      K = feature[1][i];
+    } 
+  }
+  
+  /* arrays for results; pre-allocate everything, 
+   for L and R, too, for speed */
+  
+  // event set cardinalities at time k for event p in parent s
+  unsigned int   **e_kps,  **e_kps_L, **e_kps_R;
+  // risk set cardinalities at time  k in parent s
+  unsigned int   *r_ks, *r_ks_L, *r_ks_R;
+  
+  /****************/
+  /**   parent   **/
+  /****************/
+  e_kps = calloc_uimatrix(K, maxLevel);
+  r_ks = calloc_uivector(K);
+  
+  /****************/
+  /** L DAUGHTER **/
+  /****************/
+  e_kps_L = calloc_uimatrix(K, maxLevel);
+  r_ks_L = calloc_uivector(K);
+  
+  /****************/
+  /** R DAUGHTER **/
+  /****************/
+  e_kps_R = calloc_uimatrix(K, maxLevel);
+  r_ks_R = calloc_uivector(K);
+  
+  /* compute e_kps and  r_ks! */
+  /* make the pass through, count necessary quantities */
+  
+  // current resopnse, current strata
+  int cur_y, cur_k;
+  
+  for (i = 1; i <= n; i++) {
+    
+    cur_y  = (int) response[i];
+    cur_k  = (int) feature[1][i];
+    // risk time 1 due to periods of length 1
+    
+    /****************/
+    /**   parent   **/
+    /****************/
+    /* increment e_kps, r_ks appropriately  */
+    /*
+     * number of persons experiecing event cur_y at k
+     */
+    e_kps[cur_k][cur_y]++;
+    /*
+     * risk set for period k is simply the number of 
+     * person period observations at k
+     */
+    r_ks[cur_k]++;
+    
+    /****************/
+    /** L DAUGHTER **/
+    /****************/
+    if (membership[i] == LEFT) {
+      e_kps_L[cur_k][cur_y]++;
+      r_ks_L[cur_k]++;
+    }
+    
+    /****************/
+    /** R DAUGHTER **/
+    /****************/
+    else {
+      e_kps_R[cur_k][cur_y]++;
+      r_ks_R[cur_k]++;
+    }
+    
+  }
+  
+  /* calculate the split statistic for each case; ignore
+   cases when the value of r_ks is 0 (else will result in 
+   NaNs) */
+  for (k = 1; k <= K; k++) {
+    /*
+     * parent negative log likelihood per period:
+     * number of event occurences * log (empirical MLE of likelhood of event occurence)
+     */
+    /****************/
+    /**   parent   **/
+    /****************/
+    // if no person period observations at k, then no hazard for all events
+    if (r_ks[k] != 0){
+      for(p = 1; p <= maxLevel; p ++){
+        // if no event observations for event p, then no likelihood contribution for that event
+        if (e_kps[k][p] != 0){
+          stat += (e_kps[k][p] * log((double) e_kps[k][p] / (double) r_ks[k]));
+        }
+      }
+    }
+    
+    /****************/
+    /** L DAUGHTER **/
+    /****************/
+    if (r_ks_L[k] != 0){
+      for(p = 1; p <= maxLevel; p ++){
+        if (e_kps_L[k][p] != 0){
+          stat_L += (e_kps_L[k][p] * log((double) e_kps_L[k][p] / (double) r_ks_L[k]));
+        }
+      }
+    }
+    
+    /****************/
+    /** R DAUGHTER **/
+    /****************/
+    if (r_ks_R[k] != 0){
+      for(p = 1; p <= maxLevel; p ++){
+        if (e_kps_R[k][p] != 0){
+          stat_R += (e_kps_R[k][p] * log((double) e_kps_R[k][p] / (double) r_ks_R[k]));
+        }
+      }
+    }
+    
+  }
+  
+  /* free memory
+   * h_kps e_kps r_ks
+   */
+  dealloc_uimatrix(e_kps, K, maxLevel);
+  dealloc_uivector(r_ks, K);
+  
+  dealloc_uimatrix(e_kps_L, K, maxLevel);
+  dealloc_uivector(r_ks_L, K);
+  
+  dealloc_uimatrix(e_kps_R, K, maxLevel);
+  dealloc_uivector(r_ks_R, K);
+  
+  /* determine delta, return */
+  return (stat_L + stat_R - stat);
+}
+
+double getCustomSplitStatisticMultivariateRegressionEight (unsigned int n,
+                                                           double k_for_alpha,
+                                                           char        *membership,
+                                                           double      *time,
+                                                           double      *event,
+                                                           
+                                                           unsigned int eventTypeSize,
+                                                           unsigned int eventTimeSize,
+                                                           double      *eventTime,
+                                                           
+                                                           double      *response,
+                                                           double       mean,
+                                                           double       variance,
+                                                           unsigned int maxLevel,
+                                                           
+                                                           double     **feature,
+                                                           unsigned int featureCount)
+{
+  fprintf(stderr, "outcome must be a factor; custom regression rule not yet implemented.\n");
+  exit(1);
+  
+}
+
 /*
   Memory allocation and deallocation.
     [nh] = the length of the array
@@ -1724,6 +1923,11 @@ double getCustomSplitStatisticMultivariateRegressionSeven (unsigned int n,
 unsigned int *alloc_uivector(unsigned int nh)
 {
   return (unsigned int *) malloc((size_t) ((nh+1) * (sizeof(unsigned int))));
+}
+
+unsigned int *calloc_uivector(unsigned int nh)
+{
+  return (unsigned int* ) calloc(nh + 1, sizeof(unsigned int));
 }
 
 void dealloc_uivector(unsigned int *v, unsigned int nh)
@@ -1748,6 +1952,16 @@ unsigned int **alloc_uimatrix(unsigned int n2h, unsigned int nh)
 
   for (unsigned int i = 1; i <= n2h; i++) {
     v[i] = alloc_uivector(nh);
+  }
+  return v;
+}
+
+unsigned int **calloc_uimatrix(unsigned int n2h, unsigned int nh)
+{
+  unsigned int **v = (unsigned int **) calloc(n2h + 1, sizeof(unsigned int *));
+  
+  for (unsigned int i = 1; i <= n2h; i++) {
+    v[i] = calloc_uivector(nh);
   }
   return v;
 }

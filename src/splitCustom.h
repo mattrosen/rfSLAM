@@ -238,6 +238,24 @@ double getCustomSplitStatisticMultivariateRegressionSeven (unsigned int n,
                                                       double     **feature,
                                                       unsigned int featureCount);
 
+double getCustomSplitStatisticMultivariateRegressionEight (unsigned int n,
+                                                           double k_for_alpha,
+                                                           char        *membership,
+                                                           double      *time,
+                                                           double      *event,
+                                                           
+                                                           unsigned int eventTypeSize,
+                                                           unsigned int eventTimeSize,
+                                                           double      *eventTime,
+                                                           
+                                                           double      *response,
+                                                           double       mean,
+                                                           double       variance,
+                                                           unsigned int maxLevel,
+                                                           
+                                                           double     **feature,
+                                                           unsigned int featureCount);
+
 /* bayesian estimate splits */
 double poissonSplit1 (unsigned int n,
                       double k_for_alpha,
@@ -348,6 +366,24 @@ double poissonSplit6 (unsigned int n,
                       double     **feature,
                       unsigned int featureCount);
 
+double multinomialSplit (unsigned int n,
+                      double k_for_alpha,
+                      char        *membership,
+                      double      *time,
+                      double      *event,
+                      
+                      unsigned int eventTypeSize,
+                      unsigned int eventTimeSize,
+                      double      *eventTime,
+                      
+                      double      *response,
+                      double       mean,
+                      double       variance,
+                      unsigned int maxLevel,
+                      
+                      double     **feature,
+                      unsigned int featureCount);
+
 unsigned int *alloc_uivector(unsigned int nh);
 void          dealloc_uivector(unsigned int *v, unsigned int nh);
 
@@ -356,3 +392,7 @@ void          dealloc_dvector(double *v, unsigned int nh);
 
 unsigned int **alloc_uimatrix(unsigned int n2h, unsigned int nh);
 void          dealloc_uimatrix(unsigned int **v, unsigned int n2h, unsigned int nh);
+
+unsigned int *calloc_uivector(unsigned int nh);
+unsigned int **calloc_uimatrix(unsigned int n2h, unsigned int nh);
+   

@@ -1,6 +1,6 @@
 Package: rfSLAM
-Version: 0.0.1
-Date: 2018-12-02
+Version: 0.0.2
+Date: 2020-10-09
 Title: Random Forests for Survival, Regression, and Classification
         (RF-SRC)
 Author: Shannon Wongvibulsin <swongvi1@jhmi.edu>, Matt Rosen <mattrosen@uchicago.edu>
