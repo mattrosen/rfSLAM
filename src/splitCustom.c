@@ -1885,7 +1885,7 @@ double multinomialSplit (unsigned int n,
   return (stat_L + stat_R - stat);
 }
 
-double getCustomSplitStatisticMultivariateRegressionTen (unsigned int n,
+double getCustomSplitStatisticMultivariateRegressionEight (unsigned int n,
                                                            double k_for_alpha,
                                                            char        *membership,
                                                            double      *time,
